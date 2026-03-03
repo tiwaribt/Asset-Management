@@ -1,0 +1,5 @@
+{
+  "name": "AssetFlow Pro",
+  "description": "Enterprise-grade asset management system with QR/Barcode tracking, depreciation analytics, and role-based access control.",
+  "requestFramePermissions": ["camera"]
+}
