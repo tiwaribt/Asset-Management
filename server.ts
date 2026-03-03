@@ -55,7 +55,22 @@ db.exec(`
     FOREIGN KEY(asset_id) REFERENCES assets(id),
     FOREIGN KEY(moved_by) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
 `);
+
+// Seed settings
+const currencyExists = db.prepare("SELECT * FROM settings WHERE key = ?").get("currency");
+if (!currencyExists) {
+  db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run("currency", "NPR");
+}
+const currencySymbolExists = db.prepare("SELECT * FROM settings WHERE key = ?").get("currency_symbol");
+if (!currencySymbolExists) {
+  db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run("currency_symbol", "रू");
+}
 
 // Seed admin user if not exists
 const adminExists = db.prepare("SELECT * FROM users WHERE username = ?").get("admin");
@@ -113,6 +128,22 @@ async function startServer() {
     const totalValue = db.prepare("SELECT SUM(purchase_price) as sum FROM assets").get().sum || 0;
     const statusCounts = db.prepare("SELECT status, COUNT(*) as count FROM assets GROUP BY status").all();
     res.json({ totalAssets, totalValue, statusCounts });
+  });
+
+  app.get("/api/settings", (req, res) => {
+    const settings = db.prepare("SELECT * FROM settings").all();
+    const settingsMap = settings.reduce((acc: any, s: any) => {
+      acc[s.key] = s.value;
+      return acc;
+    }, {});
+    res.json(settingsMap);
+  });
+
+  app.post("/api/settings", (req, res) => {
+    const { currency, currency_symbol } = req.body;
+    if (currency) db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run("currency", currency);
+    if (currency_symbol) db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run("currency_symbol", currency_symbol);
+    res.json({ success: true });
   });
 
   // Vite middleware for development

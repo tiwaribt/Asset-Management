@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Package, 
   PlusCircle, 
   Users, 
-  Settings, 
+  Settings as SettingsIcon, 
   Search, 
   Bell, 
   User, 
@@ -21,7 +21,8 @@ import {
   Filter,
   Download,
   Trash2,
-  Edit
+  Edit,
+  Globe
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import Barcode from "react-barcode";
@@ -69,6 +70,21 @@ interface User {
   full_name: string;
 }
 
+interface Settings {
+  currency: string;
+  currency_symbol: string;
+}
+
+const SettingsContext = createContext<{
+  settings: Settings;
+  refreshSettings: () => void;
+}>({
+  settings: { currency: 'NPR', currency_symbol: 'रू' },
+  refreshSettings: () => {},
+});
+
+const useSettings = () => useContext(SettingsContext);
+
 // --- Components ---
 
 const Sidebar = () => {
@@ -78,7 +94,7 @@ const Sidebar = () => {
     { icon: Package, label: "Assets", path: "/assets" },
     { icon: PlusCircle, label: "Add Asset", path: "/add" },
     { icon: Users, label: "Users", path: "/users" },
-    { icon: Settings, label: "Settings", path: "/settings" },
+    { icon: SettingsIcon, label: "Settings", path: "/settings" },
   ];
 
   return (
@@ -165,6 +181,7 @@ const StatCard = ({ label, value, trend, trendValue, icon: Icon }: any) => (
 
 const Dashboard = () => {
   const [stats, setStats] = useState<any>(null);
+  const { settings } = useSettings();
 
   useEffect(() => {
     fetch("/api/stats").then(res => res.json()).then(setStats);
@@ -178,7 +195,7 @@ const Dashboard = () => {
     <div className="p-8 space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard label="Total Assets" value={stats.totalAssets} trend="up" trendValue="+12%" icon={Package} />
-        <StatCard label="Total Value" value={`$${stats.totalValue.toLocaleString()}`} trend="up" trendValue="+5.4%" icon={Activity} />
+        <StatCard label="Total Value" value={`${settings.currency_symbol}${stats.totalValue.toLocaleString()}`} trend="up" trendValue="+5.4%" icon={Activity} />
         <StatCard label="In Maintenance" value={stats.statusCounts.find((s:any) => s.status === 'maintenance')?.count || 0} icon={Wrench} />
         <StatCard label="Active Users" value="14" trend="up" trendValue="+2" icon={Users} />
       </div>
@@ -247,6 +264,7 @@ const Dashboard = () => {
 const AssetList = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const navigate = useNavigate();
+  const { settings } = useSettings();
 
   useEffect(() => {
     fetch("/api/assets").then(res => res.json()).then(setAssets);
@@ -319,7 +337,7 @@ const AssetList = () => {
                   {asset.purchase_date}
                 </td>
                 <td className="px-6 py-4 text-sm font-mono text-zinc-300 text-right">
-                  ${asset.purchase_price.toLocaleString()}
+                  {settings.currency_symbol}{asset.purchase_price.toLocaleString()}
                 </td>
                 <td className="px-6 py-4 text-center">
                   <button className="p-1.5 text-zinc-600 hover:text-zinc-300 transition-colors">
@@ -339,6 +357,7 @@ const AssetDetail = () => {
   const { id } = useParams();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const { settings } = useSettings();
 
   useEffect(() => {
     fetch(`/api/assets/${id}`).then(res => res.json()).then(setAsset);
@@ -430,11 +449,11 @@ const AssetDetail = () => {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-4 bg-zinc-900/50 rounded-lg border border-[#262626]">
                           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">Purchase Price</p>
-                          <p className="text-lg font-mono text-zinc-100">${asset.purchase_price.toLocaleString()}</p>
+                          <p className="text-lg font-mono text-zinc-100">{settings.currency_symbol}{asset.purchase_price.toLocaleString()}</p>
                         </div>
                         <div className="p-4 bg-zinc-900/50 rounded-lg border border-[#262626]">
                           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">Current Value</p>
-                          <p className="text-lg font-mono text-emerald-500">${currentBookValue.toLocaleString()}</p>
+                          <p className="text-lg font-mono text-emerald-500">{settings.currency_symbol}{currentBookValue.toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
@@ -517,6 +536,7 @@ const AssetDetail = () => {
 
 const AddAsset = () => {
   const navigate = useNavigate();
+  const { settings } = useSettings();
   const [formData, setFormData] = useState({
     tag_id: `AST-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
     name: '',
@@ -603,7 +623,7 @@ const AddAsset = () => {
           <h3 className="text-sm font-semibold text-zinc-400 italic font-serif">Financial & Lifecycle</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Purchase Price ($)</label>
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Purchase Price ({settings.currency_symbol})</label>
               <input 
                 required
                 type="number" 
@@ -614,7 +634,7 @@ const AddAsset = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Salvage Value ($)</label>
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Salvage Value ({settings.currency_symbol})</label>
               <input 
                 required
                 type="number" 
@@ -713,25 +733,119 @@ const UserManagement = () => {
   );
 };
 
-export default function App() {
+const SystemSettings = () => {
+  const { settings, refreshSettings } = useSettings();
+  const [formData, setFormData] = useState({
+    currency: settings.currency,
+    currency_symbol: settings.currency_symbol
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFormData({
+      currency: settings.currency,
+      currency_symbol: settings.currency_symbol
+    });
+  }, [settings]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData)
+    });
+    if (res.ok) {
+      refreshSettings();
+      alert("Settings updated successfully");
+    }
+    setSaving(false);
+  };
+
   return (
-    <Router>
-      <div className="flex h-screen bg-[#0A0A0A] text-zinc-100 font-sans selection:bg-emerald-500/30 selection:text-emerald-500">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="AssetFlow Pro" />
-          <main className="flex-1 overflow-y-auto bg-[#141414]">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/assets" element={<AssetList />} />
-              <Route path="/assets/:id" element={<AssetDetail />} />
-              <Route path="/add" element={<AddAsset />} />
-              <Route path="/users" element={<UserManagement />} />
-              <Route path="/settings" element={<div className="p-8 text-zinc-500 italic font-serif">System settings module coming soon...</div>} />
-            </Routes>
-          </main>
-        </div>
+    <div className="p-8 max-w-2xl mx-auto">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-zinc-100 italic font-serif">System Settings</h2>
+        <p className="text-zinc-500 text-sm">Configure global application parameters and localization.</p>
       </div>
-    </Router>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="bg-[#1C1C1C] border border-[#262626] rounded-xl p-8 space-y-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Globe className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest italic font-serif">Localization</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Currency Code</label>
+              <input 
+                type="text" 
+                value={formData.currency}
+                onChange={e => setFormData({...formData, currency: e.target.value})}
+                placeholder="e.g. NPR, USD"
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Currency Symbol</label>
+              <input 
+                type="text" 
+                value={formData.currency_symbol}
+                onChange={e => setFormData({...formData, currency_symbol: e.target.value})}
+                placeholder="e.g. रू, $"
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button 
+            type="submit"
+            disabled={saving}
+            className="px-8 py-2.5 bg-emerald-500 text-black rounded-lg text-sm font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/10 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default function App() {
+  const [settings, setSettings] = useState<Settings>({ currency: 'NPR', currency_symbol: 'रू' });
+
+  const fetchSettings = () => {
+    fetch("/api/settings").then(res => res.json()).then(setSettings);
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  return (
+    <SettingsContext.Provider value={{ settings, refreshSettings: fetchSettings }}>
+      <Router>
+        <div className="flex h-screen bg-[#0A0A0A] text-zinc-100 font-sans selection:bg-emerald-500/30 selection:text-emerald-500">
+          <Sidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Header title="AssetFlow Pro" />
+            <main className="flex-1 overflow-y-auto bg-[#141414]">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/assets" element={<AssetList />} />
+                <Route path="/assets/:id" element={<AssetDetail />} />
+                <Route path="/add" element={<AddAsset />} />
+                <Route path="/users" element={<UserManagement />} />
+                <Route path="/settings" element={<SystemSettings />} />
+              </Routes>
+            </main>
+          </div>
+        </div>
+      </Router>
+    </SettingsContext.Provider>
   );
 }
